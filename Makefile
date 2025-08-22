@@ -59,6 +59,7 @@ dist/pkg: src/**/* README.md pyproject.toml uv.lock .venv
 
 # Docs
 
+
 .PHONY: docs
 docs: README.md
 README.md: docs/*.md
@@ -67,6 +68,7 @@ README.md: docs/*.md
 
 
 # Sources
+
 
 .PHONY: sources
 sources: badges requirements README.md
