@@ -14,11 +14,18 @@
 <!-- docsub: include docs/features.md -->
 <!-- docsub: end -->
 
+## Supported Operations
+
+- `aws`
+  - `tag`
+    - `--iam-roles`
+    - `--iam-users`
+
 
 # Installation
 
 ```shell
-$ pip install lazycloud
+$ uv tool install lazycloud
 ```
 
 

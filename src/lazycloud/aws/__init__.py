@@ -1,9 +1,9 @@
 import asyncio
-import json
+from functools import wraps
 
 import rich_click as click
+from caseutil import to_kebab, to_lower
 from rich.progress import Progress
-from aws_arn import parse_arn
 
 from .tag import AwsTagManager, ResourceType
 
@@ -15,73 +15,56 @@ def cli() -> None:
     """
 
 
+def resource_type_options(f):
+    cmd = f
+    for rt in ResourceType:
+        cmd = click.option(
+            f'--{to_kebab(rt)}',
+            help=f'Load "{to_lower(rt)}" resources.',
+            is_flag=True,
+            default=False,
+        )(cmd)
+    return wraps(f)(cmd)
+
+
 @cli.command()
-@click.option(
-    '-r', '--resource',
-    required=True,
-    type=click.Choice(ResourceType, case_sensitive=False),
-    help='Resource type.',
-)
 @click.option(
     '-t', '--tag',
     required=True,
     help='Tag "key=value" pair.',
 )
 @click.option(
-    '-u', '--unselected-value',
-    help='Set value when tag is unselected; tag key is removed by default.',
+    '-u', '--unchecked-value',
+    help='Set value when tag is unchecked; tag key is removed by default.',
 )
+@resource_type_options
 def tag(
-    resource: ResourceType,
     tag: str,
-    unselected_value: str | None,
+    unchecked_value: str | None,
+    **resource_type_flags,
 ) -> None:
     """
     Edit tags for AWS resources.
     """
     key, value = tag.rsplit('=')
-    manager = AwsTagManager(resource)
+    resource_types = {ResourceType(k) for k, v in resource_type_flags.items() if v}
+    manager = AwsTagManager(resource_types)
 
     with Progress(transient=True) as progress:
         progress.add_task('Loading...', total=None)
         asyncio.run(manager.load())
 
-    changes = manager.edit_tag_selection(
-        message={
-            ResourceType.IAM_USER:
-                f'Which IAM users will be tagged with {key}={value}?',
-        }[resource],
+    if not manager.resources:
+        click.echo('No resources found.')
+        raise SystemExit(0)
+
+    changes = manager.edit_tag(
+        message=f'Which resources will be tagged with {key}={value}?',
         key=key,
-        value=value,
-        unselected_value=unselected_value,
+        value_checked=value,
+        value_unchecked=unchecked_value,
     )
 
     with Progress(transient=True) as progress:
         progress.add_task('Updating...', total=None)
         asyncio.run(manager.apply(changes))
-
-
-@cli.command()
-@click.option(
-    '-a', '--arn',
-    required=True,
-    help='Resource ARN.',
-)
-@click.option(
-    '--json-schema',
-    help='JSON Schema string if resource value is in JSON format.',
-)
-@click.option(
-    '--json-schema-file',
-    type=click.Path(exists=True, dir_okay=False),
-    help='Path to JSON Schema file.',
-)
-def edit(
-    arn: str,
-    json_schema: str | None,
-    json_schema_file: str | None,
-) -> None:
-    """
-    Edit AWS resources.
-    """
-    raise NotImplementedError

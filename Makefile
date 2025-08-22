@@ -3,15 +3,16 @@ SHELL = /usr/bin/env sh -eu
 FORCE:
 
 .PHONY: help
-# list available commands
+# List available commands
 help:
-	@sed -n 's/^\.PHONY: \(\S\+\)\( #\)\?/\1/p' Makefile
+	@sed -n '/^\.PHONY: / {N;s/.*: \(\S\+\)\( # \(.*\)\)\?\n# \(.*\)/\1 \3:\4/p}' Makefile | column -ts:
 
 
 # Environment
 
+
 .PHONY: init
-# initialize development environment
+# Initialize development environment
 init:
 	@command -v gh || echo 'Command "gh" not found, see https://cli.github.com'
 	@command -v git || echo 'Command "git" not found, see https://git-scm.com'
@@ -19,28 +20,27 @@ init:
 	@command -v yq || echo 'Command "yq" not found, see https://github.com/mikefarah/yq'
 	printf "#!/usr/bin/env sh\njust pre-commit" > .git/hooks/pre-commit
 	chmod ug+x .git/hooks/*
-	make sync
+	uv sync
+	make -B sync
 
 .PHONY: sync
-# synchronize development environment
+# Synchronize development environment
 sync: .venv
-.venv: pyproject.toml uv.lock
-	uv lock --refresh
+.venv uv.lock &: pyproject.toml
 	uv sync --all-extras --all-groups --all-packages --frozen
-uv.lock: pyproject.toml
-	uv lock --refresh
 
 .PHONY: upgrade
-# upgrade development environment
+# Upgrade development environment
 upgrade:
-	uv sync --all-extras --all-groups --upgrade
+	uv sync --all-extras --all-groups --all-packages --upgrade
 	uvx copier update --trust --vcs-ref main
 
 
 # Development
 
+
 .PHONY: news
-# add changelog news entry
+# Add changelog news entry
 news:
 	uv run scriv create
 

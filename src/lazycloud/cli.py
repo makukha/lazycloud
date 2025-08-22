@@ -2,8 +2,6 @@ import caseutil
 import rich_click as click
 
 try:
-    import boto3
-
     from .aws import cli as aws_cli
 except ImportError:
     aws_cli = None

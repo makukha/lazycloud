@@ -1,123 +1,145 @@
-import asyncio
+from asyncio import TaskGroup
 from collections import defaultdict
+from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from enum import StrEnum
 
-import boto3
 import questionary as q
+from aiobotocore.session import get_session
+
+from types_aiobotocore_iam import IAMClient
+
+
+import tracemalloc
+tracemalloc.start()
 
 
 class ResourceType(StrEnum):
-    IAM_USER = 'iam-user'
+    IAM_ROLE = 'iam_role'
+    IAM_USER = 'iam_user'
 
-    def boto3_client(self) -> boto3.Session:
-        match self:
-            case 'iam-user':
-                return boto3.client('iam')
-            case _:
-                raise AssertionError
+    @property
+    def service(self) -> str:
+        return self.split('_', 1)[0]
 
 
 @dataclass
 class Resource:
+    type: ResourceType
     name: str
     arn: str
     tags: dict[str, str]
 
 
 @dataclass
-class Change:
+class TagChange:
     resource: Resource
     key: str
     value: str | None
 
 
 class AwsTagManager:
-    def __init__(self, resource: ResourceType) -> None:
-        self.resource = resource
-        self.client = self.resource.boto3_client()
-        self.tag_client = boto3.client('resourcegroupstaggingapi')
+    def __init__(self, resource_types: set[ResourceType]) -> None:
+        self.resource_types = resource_types
         self.resources: dict[str, Resource] = {}
+        self.session = get_session()
 
     async def load(self) -> None:
         self.resources.clear()
-        match self.resource:
-            case ResourceType.IAM_USER:
-                await self._load_iam_users()
-            case _:
-                raise AssertionError
+        # group resource types by service
+        service_resource_types = defaultdict(list)
+        for rt in self.resource_types:
+            service_resource_types[rt.service].append(rt)
+        # load for each service
+        async with AsyncExitStack() as stack:
+            async with TaskGroup() as tg:
+                for service, resource_types in service_resource_types.items():
+                    client = await stack.enter_async_context(
+                        self.session.create_client(service)
+                    )
+                    for rt in resource_types:
+                        loader = getattr(self, f'load_{rt}s')
+                        tg.create_task(loader(client, tg))
 
-    async def _load_iam_users(self) -> None:
-        # users
-        resp = self.client.list_users()
-        if resp['IsTruncated']:
-            raise NotImplementedError  # todo
-        for user in resp['Users']:
-            name = user['UserName']
-            self.resources[name] = Resource(name=name, arn=user['Arn'], tags={})
-        # user tags
-        async with asyncio.TaskGroup() as tg:
-            for name in self.resources:
-                tg.create_task(self._load_iam_user_tags(name))
+    async def load_iam_roles(self, client: IAMClient, tg: TaskGroup) -> None:
+        async def load_tags(res: Resource) -> None:
+            paginator = client.get_paginator('list_role_tags')
+            async for resp in paginator.paginate(RoleName=res.name):
+                res.tags.update({t['Key']: t['Value'] for t in resp['Tags']})
 
-    async def _load_iam_user_tags(self, name: str) -> None:
-        resp = await asyncio.to_thread(
-            self.client.list_user_tags,
-            UserName=name,
-        )
-        if resp['IsTruncated']:
-            raise NotImplementedError  # todo
-        self.resources[name].tags = dict(
-            (t['Key'], t['Value']) for t in resp['Tags']
-        )
+        async for resp in client.get_paginator('list_roles').paginate():
+            resources = [
+                Resource(
+                    type=ResourceType.IAM_ROLE,
+                    name=obj['RoleName'],
+                    arn=obj['Arn'],
+                    tags={},
+                )
+                for obj in resp['Roles']
+            ]
+            for res in resources:
+                tg.create_task(load_tags(res))
+            self.resources.update({res.name: res for res in resources})
 
-    def edit_tag_selection(
+    async def load_iam_users(self, client: IAMClient, tg: TaskGroup) -> None:
+        async def load_tags(res: Resource) -> None:
+            paginator = client.get_paginator('list_user_tags')
+            async for resp in paginator.paginate(UserName=res.name):
+                res.tags.update({t['Key']: t['Value'] for t in resp['Tags']})
+
+        async for resp in client.get_paginator('list_users').paginate():
+            resources = [
+                Resource(
+                    type=ResourceType.IAM_USER,
+                    name=obj['UserName'],
+                    arn=obj['Arn'],
+                    tags={},
+                )
+                for obj in resp['Users']
+            ]
+            for res in resources:
+                tg.create_task(load_tags(res))
+            self.resources.update({res.name: res for res in resources})
+
+    def edit_tag(
         self,
         message: str,
         key: str,
-        value: str,
-        unselected_value: str | None,
-    ) -> list[Change]:
+        value_checked: str,
+        value_unchecked: str | None,
+    ) -> list[TagChange]:
         choices = [
             q.Choice(title=r.name, value=r, checked=key in r.tags)
             for r in self.resources.values()
         ]
         checked = q.checkbox(message, choices).ask()
-        ret: list[Change] = []
+        ret: list[TagChange] = []
         for c in choices:
             if not c.checked and c.value in checked:
-                ret.append(Change(c.value, key, value))
+                ret.append(TagChange(c.value, key, value_checked))
             elif c.checked and c.value not in checked:
-                ret.append(Change(c.value, key, unselected_value))
+                ret.append(TagChange(c.value, key, value_unchecked))
         return ret
 
-    async def apply(self, changes: list[Change]) -> None:
-        # group changes by tag key and value
-        group = defaultdict(list)
+    async def apply(self, changes: list[TagChange]) -> None:
+        # group additions by key and value
+        addition = defaultdict(list)
+        for c in changes:
+            if c.value is not None:
+                addition[c.key, c.value].append(c.resource.arn)
+        # group removals by key
+        removal = defaultdict(list)
         for c in changes:
             if c.value is None:
-                group[c.key, None].append(c)
-            else:
-                group[c.key, c.value].append(c)
-        # run operations per group
-        async with asyncio.TaskGroup() as tg:
-            for (key, value), changes in group.items():
-                arns = [c.resource.arn for c in changes]
-                if value is None:
-                    tg.create_task(self.remove_tag(arns, key))
-                else:
-                    tg.create_task(self.add_tag(arns, key, value))
-
-    async def add_tag(self, arns: list[str], key: str, value: str) -> None:
-        await asyncio.to_thread(
-            self.tag_client.tag_resources,
-            ResourceARNList=arns,
-            Tags={key: value},
-        )
-
-    async def remove_tag(self, arns: list[str], key: str) -> None:
-        await asyncio.to_thread(
-            self.tag_client.untag_resources,
-            ResourceARNList=arns,
-            TagKeys=[key],
-        )
+                removal[c.key].append(c.resource.arn)
+        # apply to groups
+        async with self.session.create_client('resourcegroupstaggingapi') as client:
+            async with TaskGroup() as tg:
+                for (k, v), arns in addition.items():
+                    tg.create_task(
+                        client.tag_resources(ResourceARNList=arns, Tags={k: v})
+                    )
+                for k, arns in removal.items():
+                    tg.create_task(
+                        client.untag_resources(ResourceARNList=arns, TagKeys=[k])
+                    )
