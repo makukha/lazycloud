@@ -50,13 +50,14 @@ pre-commit:
 # Update project dependencies.
 update-dependencies:
 	uv sync --all-extras --all-groups --all-packages --upgrade
-	make pre-commit
+	make build
 
 .PHONY: update-template
 # Update project template.
 update-template:
 	uvx copier update --trust --vcs-ref main
-	make pre-commit
+	# todo: add interactive step to merge
+	make build
 
 .PHONY: version-bump
 # Bump project version.
@@ -119,6 +120,10 @@ version-bump:
 # Run project linters.
 lint:
 	lefthook run pre-commit --jobs lint --all-files
+
+.PHONY: build
+# Build project.
+build: badges docs package requirements
 
 .PHONY: package
 # Build package.
