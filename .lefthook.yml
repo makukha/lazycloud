@@ -1,0 +1,10 @@
+pre-commit:
+  jobs:
+    - name: lint
+      group:
+        jobs:
+          - run: uv run mypy .
+          - run: uv run ruff check
+          - run: uv run ruff format --diff
+    - name: docs
+      run: make test && make badges docs

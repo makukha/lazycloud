@@ -6,12 +6,7 @@ from enum import StrEnum
 
 import questionary as q
 from aiobotocore.session import get_session
-
 from types_aiobotocore_iam import IAMClient
-
-
-import tracemalloc
-tracemalloc.start()
 
 
 class ResourceType(StrEnum):
@@ -55,7 +50,7 @@ class AwsTagManager:
             async with TaskGroup() as tg:
                 for service, resource_types in service_resource_types.items():
                     client = await stack.enter_async_context(
-                        self.session.create_client(service)
+                        self.session.create_client(service)  # type: ignore[call-overload]
                     )
                     for rt in resource_types:
                         loader = getattr(self, f'load_{rt}s')
@@ -116,9 +111,9 @@ class AwsTagManager:
         ret: list[TagChange] = []
         for c in choices:
             if not c.checked and c.value in checked:
-                ret.append(TagChange(c.value, key, value_checked))
+                ret.append(TagChange(c.value, key, value_checked))  # type: ignore[arg-type]
             elif c.checked and c.value not in checked:
-                ret.append(TagChange(c.value, key, value_unchecked))
+                ret.append(TagChange(c.value, key, value_unchecked))  # type: ignore[arg-type]
         return ret
 
     async def apply(self, changes: list[TagChange]) -> None:

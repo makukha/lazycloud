@@ -1,11 +1,15 @@
 import asyncio
 from functools import wraps
+from typing import Callable, ParamSpec, TypeVar
 
 import rich_click as click
 from caseutil import to_kebab, to_lower
 from rich.progress import Progress
 
 from .tag import AwsTagManager, ResourceType
+
+P = ParamSpec('P')
+R = TypeVar('R')
 
 
 @click.group()
@@ -15,7 +19,7 @@ def cli() -> None:
     """
 
 
-def resource_type_options(f):
+def resource_type_options(f: Callable[P, R]) -> Callable[P, R]:
     cmd = f
     for rt in ResourceType:
         cmd = click.option(
@@ -29,19 +33,21 @@ def resource_type_options(f):
 
 @cli.command()
 @click.option(
-    '-t', '--tag',
+    '-t',
+    '--tag',
     required=True,
     help='Tag "key=value" pair.',
 )
 @click.option(
-    '-u', '--unchecked-value',
+    '-u',
+    '--unchecked-value',
     help='Set value when tag is unchecked; tag key is removed by default.',
 )
 @resource_type_options
 def tag(
     tag: str,
     unchecked_value: str | None,
-    **resource_type_flags,
+    **resource_type_flags: bool,
 ) -> None:
     """
     Edit tags for AWS resources.
