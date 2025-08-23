@@ -39,7 +39,7 @@ news:
 # Collect changelog entries.
 changelog:
 	uv run scriv collect
-	sed -e's/^### \(.*\)$/***\1***/; s/\([a-z]\)\*\*\*$/\1***/' -i'' CHANGELOG.md
+	sed -e's/^### \(.*\)$$/***\1***/' -i'' CHANGELOG.md
 
 .PHONY: pre-commit
 # Run pre-commit hook.

@@ -9,3 +9,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - See upcoming changes in [News directory](https://github.com/makukha/lazycloud/tree/main/NEWS.d)
 
 <!-- scriv-insert-here -->
+
+<a id='changelog-0.1.0'></a>
+## [0.1.0](https://github.com/makukha/lazycloud/releases/tag/v0.1.0) — 2025-08-23
+
+***Added 🌿***
+
+- Initial release
