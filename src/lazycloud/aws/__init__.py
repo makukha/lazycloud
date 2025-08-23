@@ -6,7 +6,7 @@ import rich_click as click
 from caseutil import to_kebab, to_lower
 from rich.progress import Progress
 
-from .tag import AwsTagManager, ResourceType
+from .tag_manager import AwsTagManager, ResourceType
 
 P = ParamSpec('P')
 R = TypeVar('R')
@@ -15,7 +15,7 @@ R = TypeVar('R')
 @click.group()
 def cli() -> None:
     """
-    Manage tags for Amazon Web Services resources.
+    Manage Amazon Web Services resources.
     """
 
 
@@ -40,13 +40,13 @@ def resource_type_options(f: Callable[P, R]) -> Callable[P, R]:
 )
 @click.option(
     '-u',
-    '--unchecked-value',
-    help='Set value when tag is unchecked; tag key is removed by default.',
+    '--unset',
+    help='When unchecked, set tag to this value instead of removing.',
 )
 @resource_type_options
 def tag(
     tag: str,
-    unchecked_value: str | None,
+    unset: str | None,
     **resource_type_flags: bool,
 ) -> None:
     """
@@ -68,7 +68,7 @@ def tag(
         message=f'Which resources will be tagged with {key}={value}?',
         key=key,
         value_checked=value,
-        value_unchecked=unchecked_value,
+        value_unchecked=unset,
     )
 
     with Progress(transient=True) as progress:

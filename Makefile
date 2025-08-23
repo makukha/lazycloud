@@ -44,17 +44,19 @@ changelog:
 .PHONY: pre-commit
 # Run pre-commit hook.
 pre-commit:
-	lefthook run pre-commit
+	lefthook run pre-commit --all-files
 
 .PHONY: update-dependencies
 # Update project dependencies.
 update-dependencies:
 	uv sync --all-extras --all-groups --all-packages --upgrade
+	make pre-commit
 
 .PHONY: update-template
 # Update project template.
 update-template:
 	uvx copier update --trust --vcs-ref main
+	make pre-commit
 
 .PHONY: version-bump
 # Bump project version.

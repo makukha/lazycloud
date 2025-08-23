@@ -1,7 +1,6 @@
 .coverage
 *.pyc
 __pycache__/
-.python-version
 .tmp/
 .tox/
 .venv/
