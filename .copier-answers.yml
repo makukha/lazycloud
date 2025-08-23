@@ -14,7 +14,7 @@ project_extras: aws
 project_name: lazycloud
 project_script: true
 project_script_name: lazycloud
-project_version: 0.0.0
+project_version: 0.1.0
 pypi_package_name: lazycloud
 pypi_url: https://pypi.org/project/lazycloud
 python_version: 3.13.6
