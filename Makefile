@@ -224,14 +224,14 @@ clean:
 
 .PHONY: github-repo-update
 github-repo-update:
-	export DESCRIPTION=`yq .project.description pyproject.toml` && \
+	@export DESCRIPTION=`yq .project.description pyproject.toml` && \
 	  gh repo edit -d "$$DESCRIPTION"
-	export HOMEPAGE=`yq .project.urls.Documentation pyproject.toml | sed '/^https:\/\/github.com/d'` && \
+	@export HOMEPAGE=`yq .project.urls.Documentation pyproject.toml | sed '/^https:\/\/github.com/d'` && \
 	  gh repo edit -h "$$HOMEPAGE" || true
-	export REPO=`git config --get remote.origin.url | sed 's|.*/\(.*/.*\)\.git$$|\1|'` && \
+	@export REPO=`git config --get remote.origin.url | sed 's|.*/\(.*/.*\)\.git$$|\1|'` && \
 	export OLD_TOPICS=`GH_PAGER=cat gh api repos/$$REPO | yq -r '.topics | join(" ")'` && \
 	  [ -n "$$OLD_TOPICS" ] && \
 	  gh repo edit `echo " $$OLD_TOPICS" | sed 's/ / --remove-topic /g'` || true
-	export NEW_TOPICS=`yq -r '.project.keywords | join(" ")' pyproject.toml` && \
+	@export NEW_TOPICS=`yq -r '.project.keywords | join(" ")' pyproject.toml` && \
 	  gh repo edit `echo " $$NEW_TOPICS" | sed 's/ / --add-topic /g'`
-	gh label create "code of conduct" --force -c D73A4A -d "Code of Conduct issues"
+	@gh label create "code of conduct" --force -c D73A4A -d "Code of Conduct issues"
