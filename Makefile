@@ -175,52 +175,27 @@ clean:
 	find . -name __pycache__ -exec rm -rf {} \;
 
 
-# TODO: GitHub helpers
+# Git and GitHub helpers
 
 
-## push all commits after ensuring the clean state
-#[no-cd]
-#push:
-#    git diff --exit-code
-#    git diff --cached --exit-code
-#    git ls-files --other --exclude-standard --directory
-#    git push
+.PHONY: git-push
+git-push:
+	@git diff --name-only --exit-code
+	@git diff --name-only --cached --exit-code
+	@git ls-files --other --exclude-standard --directory
+	git push
 
-## get issue id of current GitHub branch
-#[no-cd]
-#issue-id:
-#    @git branch --show-current | cut -d- -f1
-#
-## get issue title of current GitHub branch
-#[no-cd]
-#issue-title:
-#    @GH_PAGER=cat gh issue view "$(just gh::issue-id)" --json title -t '\{\{\{\{.title}}'
-#
-## create GitHub pull request
-#[no-cd]
-#pr-create:
-#    #!/usr/bin/env sh
-#    set -eu
-#    just git::push
-#    TITLE=
-#    gh pr create --web -t "$(just gh::issue-title)"
-#
-## create GitHub release
-#[no-cd]
-#release-create tag:
-#    #!/usr/bin/env sh
-#    set -eu
-#    if [ "$(git branch --show-current)" != "main" ]; then
-#        echo "Can release from main branch only"
-#        exit 1
-#    fi
-#    git push origin tag "\{\{tag}}"
-#    gh release create --draft -t "\{\{tag}} — $(date -Idate)" --generate-notes "\{\{tag}}"
-#
-## get "org/name" of current GitHub repository
-#[no-cd]
-#repo-name:
-#    @git config --get remote.origin.url | sed 's|.*/\(.*/.*\)\.git$|\1|'
+.PHONY: github-pullrequest-new
+github-pullrequest-new:
+	@export ISSUE_ID=`git branch --show-current | cut -d- -f1` && \
+	export ISSUE_TITLE=`GH_PAGER=cat gh issue view "$$ISSUE_ID" --json title -t '{{.title}}'` && \
+	  gh pr create --web -t "$$ISSUE_TITLE"
+
+.PHONY: github-release-new
+github-release-new:
+	@[ "`git branch --show-current`" = "main" ] || (echo "Release from "main" branch only." && false)
+	@export TAG="v`uv run bump-my-version show current_version`" && \
+	  gh release create --draft -t "$$TAG — `date -Idate`" --generate-notes "$$TAG"
 
 .PHONY: github-repo-update
 github-repo-update:
@@ -229,7 +204,7 @@ github-repo-update:
 	@export HOMEPAGE=`yq .project.urls.Documentation pyproject.toml | sed '/^https:\/\/github.com/d'` && \
 	  gh repo edit -h "$$HOMEPAGE" || true
 	@export REPO=`git config --get remote.origin.url | sed 's|.*/\(.*/.*\)\.git$$|\1|'` && \
-	export OLD_TOPICS=`GH_PAGER=cat gh api repos/$$REPO | yq -r '.topics | join(" ")'` && \
+	export OLD_TOPICS=`GH_PAGER=cat gh api "repos/$$REPO" | yq -r '.topics | join(" ")'` && \
 	  [ -n "$$OLD_TOPICS" ] && \
 	  gh repo edit `echo " $$OLD_TOPICS" | sed 's/ / --remove-topic /g'` || true
 	@export NEW_TOPICS=`yq -r '.project.keywords | join(" ")' pyproject.toml` && \
