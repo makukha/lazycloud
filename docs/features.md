@@ -1,0 +1,2 @@
+- Simple terminal-based user interface with prompts and defaults
+- Cloud providers supported: AWS

@@ -1,0 +1,5 @@
+[tool.docsub.cmd.help]
+env_vars = { COLUMNS = "70" }
+
+[tool.docsub.logging]
+level = "WARNING"
