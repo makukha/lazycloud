@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: bd31ebe
+_commit: b8c2d99
 _src_path: gh:makukha/copython
 author_email: m.makukha@gmail.com
 author_name: Michael Makukha
@@ -10,7 +10,10 @@ github_slug: makukha/lazycloud
 github_url: https://github.com/makukha/lazycloud
 module_name: lazycloud
 openssf_bp_id: '11073'
+project_extras: aws
 project_name: lazycloud
+project_script: true
+project_script_name: lazycloud
 project_version: 0.0.0
 pypi_package_name: lazycloud
 pypi_url: https://pypi.org/project/lazycloud

@@ -50,6 +50,13 @@ $ uv tool install lazycloud
 <!-- docsub: end #usage.md -->
 
 
+# CLI Reference
+
+<!-- docsub: begin #cli.md -->
+<!-- docsub: include docs/cli.md -->
+<!-- docsub: end #cli.md -->
+
+
 # Contributing
 
 Pull requests, feature requests, and bug reports are welcome!
