@@ -185,20 +185,21 @@ git-push:
 	@git ls-files --other --exclude-standard --directory
 	git push
 
-.PHONY: github-pullrequest-new
-github-pullrequest-new:
+.PHONY: github-pullrequest
+github-pullrequest:
+	@make git-push
 	@export ISSUE_ID=`git branch --show-current | cut -d- -f1` && \
 	export ISSUE_TITLE=`GH_PAGER=cat gh issue view "$$ISSUE_ID" --json title -t '{{.title}}'` && \
 	  gh pr create --web -t "$$ISSUE_TITLE"
 
-.PHONY: github-release-new
-github-release-new:
+.PHONY: github-release
+github-release:
 	@[ "`git branch --show-current`" = "main" ] || (echo "Release from "main" branch only." && false)
 	@export TAG="v`uv run bump-my-version show current_version`" && \
 	  gh release create --draft -t "$$TAG — `date -Idate`" --generate-notes "$$TAG"
 
-.PHONY: github-repo-update
-github-repo-update:
+.PHONY: github-metadata
+github-metadata:
 	@export DESCRIPTION=`yq .project.description pyproject.toml` && \
 	  gh repo edit -d "$$DESCRIPTION"
 	@export HOMEPAGE=`yq .project.urls.Documentation pyproject.toml | sed '/^https:\/\/github.com/d'` && \
