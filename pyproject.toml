@@ -62,6 +62,7 @@ dev = [
   "docsub>=0.9.0 ; python_version >= '3.13'",
   "genbadge[tests,coverage]>=1.1 ; python_version >= '3.13'",
   "mypy>=1.0 ; python_version >= '3.13'",
+  "questionary-cli==0.1.0 ; python_version >= '3.13'",
   "ruff>=0.9 ; python_version >= '3.13'",
   "scriv>=1.5 ; python_version >= '3.13'",
 ]

@@ -18,10 +18,9 @@ init:
 	@command -v gh || echo 'Command "gh" not found, see https://cli.github.com'
 	@command -v git || echo 'Command "git" not found, see https://git-scm.com'
 	@command -v lefthook || echo 'Command "lefthook" not found, see https://lefthook.dev'
+	@command -v podman || command -v docker || echo 'Command "podman" not found, see https://podman.io'
 	@command -v uv || echo 'Command "uv" not found, see https://docs.astral.sh/uv'
 	@command -v yq || echo 'Command "yq" not found, see https://github.com/mikefarah/yq'
-	lefthook install
-	uv sync
 	make -B sync
 
 .PHONY: sync
@@ -34,12 +33,6 @@ sync: .venv
 # Add changelog news entry.
 news:
 	uv run scriv create
-
-.PHONY: changelog
-# Collect changelog entries.
-changelog:
-	uv run scriv collect
-	sed -e's/^### \(.*\)$$/***\1***/' -i'' CHANGELOG.md
 
 .PHONY: pre-commit
 # Run pre-commit hook.
@@ -56,61 +49,8 @@ update-dependencies:
 # Update project template.
 update-template:
 	uvx copier update --trust --vcs-ref main
-	# todo: add interactive step to merge
+	uv run que wait -p'Resolve merge conflicts and' -a
 	make build
-
-.PHONY: version-bump
-# Bump project version.
-version-bump:
-	@uv run bump-my-version show-bump
-	@printf 'Choose version component: '; read V; printf $$V > .tmp/.bump
-	uv run bump-my-version bump --tag `cat .tmp/.bump`
-	@rm .tmp/.bump
-	uv lock
-
-# TODO: Manage
-
-## publish package on PyPI
-#[private]
-#pypi-publish:
-#    make package
-#    uv publish dist/pkg/* --token=$(bw get item __token__+makukha@pypi.org | yq .notes)
-#
-## run pre-merge
-#[group('2-manage')]
-#pre-merge:
-#    just lint
-#    just test
-#    make docs sources
-#
-## merge
-#[group('2-manage')]
-#merge:
-#    just pre-merge
-#    @echo "Manually>>> Merge pull request ..."
-#    just gh::pr-create
-#    @printf "Done? " && read _
-#    git switch main
-#    git fetch
-#    git pull
-#
-## release
-#[group('2-manage')]
-#release:
-#    just version-bump
-#    just pre-merge
-#    just changelog-collect
-#    make sources
-#    @echo "Manually>>> Proofread the changelog and commit changes ..."
-#    @printf "Done? " && read _
-#    git tag "v$(uv run bump-my-version show current_version)"
-#    git push --tags
-#    just merge
-#    just gh::repo-update
-#    @echo "Manually>>> Update GitHub release notes and publish release ..."
-#    just gh::release-create "v$(uv run bump-my-version show current_version)"
-#    @printf "Done? " && read _
-#    just pypi-publish
 
 
 # Develop
@@ -175,19 +115,77 @@ clean:
 	find . -name __pycache__ -exec rm -rf {} \;
 
 
-# Git and GitHub helpers
+# Release
 
 
-.PHONY: git-push
-git-push:
+.PHONY: seed
+# Seed the repository after it is created.
+seed:
+	uv sync
+	make init
+	lefthook install
+
+.PHONY: version-bump
+# Bump project version.
+version-bump:
+	@uv run bump-my-version show-bump
+	@uv run que --plain --file .tmp/.bump \
+	  select -p'Choose version component:' --as component -c'["major","minor","patch"]'
+	uv run bump-my-version bump --tag `cat .tmp/.bump | cut -d'=' -f2`
+	@rm .tmp/.bump
+	uv lock
+
+.PHONY: changelog
+# Collect changelog entries.
+changelog:
+	uv run scriv collect
+	sed -e's/^### \(.*\)$$/***\1***/' -i'' CHANGELOG.md
+
+.PHONY: publish
+# Publish package on PyPI.
+publish: package
+	hatch publish .tmp/dist/*.*
+
+.PHONY: merge
+# Merge current branch to "main"
+merge:
+	make build
+	make pre-commit
+	make github-pullrequest
+	uv run que wait -p'Manually merge PR created and' -a
+	git switch main
+	git fetch
+	git pull
+
+.PHONY: release
+# Process release branch
+release:
+	# update version and changelog
+	make version-bump
+	make changelog
+	uv run que wait -p'Proofread the changelog and' -a
+	make build
+	uv run que wait -p'Proofread changes and commit, then' -a
+	make pre-commit
+	# tag
+	git tag "v`uv run bump-my-version show current_version`"
+	git push --tags
+	# merge
+	make merge
+	make github-metadata
+	make github-release
+	make publish
+
+
+# GitHub helpers
+
+
+.PHONY: github-pullrequest
+github-pullrequest:
 	@git diff --name-only --exit-code
 	@git diff --name-only --cached --exit-code
 	@git ls-files --other --exclude-standard --directory
 	git push
-
-.PHONY: github-pullrequest
-github-pullrequest:
-	@make git-push
 	@export ISSUE_ID=`git branch --show-current | cut -d- -f1` && \
 	export ISSUE_TITLE=`GH_PAGER=cat gh issue view "$$ISSUE_ID" --json title -t '{{.title}}'` && \
 	  gh pr create --web -t "$$ISSUE_TITLE"

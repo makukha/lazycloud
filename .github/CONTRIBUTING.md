@@ -14,11 +14,12 @@ If the change proposed is not trivial, like typo in docs, please create an issue
 
 You will need:
 
-- [uv](https://docs.astral.sh/uv/)
-- [Just](https://just.systems/man/en/)
 - [GNU make](https://www.gnu.org/software/make/make.html)
-- [Docker](https://www.docker.com) or [Podman](https://podman.io)
 - [Git](https://git-scm.com)
+- [GitHib CLI](https://cli.github.com)
+- [Lefthook](https://lefthook.dev)
+- [Podman](https://podman.io) or [Docker](https://www.docker.com)
+- [uv](https://docs.astral.sh/uv/)
 - [yq](https://mikefarah.gitbook.io/yq)
 
 If your OS is macOS or Linux, some of them will be installed by `make init`.
@@ -31,7 +32,8 @@ If your OS is macOS or Linux, some of them will be installed by `make init`.
 
     ```shell
     git clone https://github.com/<YOUR_USER_NAME>/lazycloud.git
-    make init docs
+    make init
+    make pre-commit
     ```
 
 ### Write code
@@ -55,21 +57,21 @@ There must be no errors.
 * Fast, the "main" configuration only:
 
     ```shell
-    just test -m main
+    make test TOXARGS="-m main"
     ```
 
     Coverage report is generated as part of "main" configuration.
     Every new PR must not decrease the code coverage.
 
-* The whole test matrix (will take some time):
+* The whole test matrix (may take some time):
 
     ```shell
-    just test
+    make test
     ```
 * Debug single failing tox environment other than "main":
 
     ```shell
-    just test -e <TOX ENV NAME>
+    make test TOXARGS="-e <tox-env-name>"
     ```
 
     See `tox.ini` for details.
@@ -77,7 +79,7 @@ There must be no errors.
 ### Build docs and python package
 
 ```shell
-make docs package
+make build
 ```
 
 There must be no errors.
